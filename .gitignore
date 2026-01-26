@@ -1,0 +1,38 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Logs / temp
+logs/
+*.log
+*.tmp
+
+# Videos / datasets (do not commit large files)
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.h264
+datasets/
+captures/
+
+# ROS2 / bag files (large)
+rosbag2_*/
+*.db3
+*.mcap
+
+# Secrets / local configs
+*.env
+.env.*
+secrets*
+*password*
+config.local.*
+configs/*.local.*
