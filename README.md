@@ -113,17 +113,33 @@ scp hello@<PI_IP>:~/demo-cam/out_720p30.mp4 .
 
 ## Performance (measured)
 
-Test setup: Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode via `x2>
+Test setup: Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode via `x264enc` (`speed-preset=veryfast`, `bitrate=3000`), split to RTP/UDP + MP4.
 
-| Mode | Duration | Output size | Video bitrate | FPS | Codec / Profile | Pi CPU (gst->
+| Mode | Duration | Output size | Video bitrate | FPS | Codec / Profile | Pi CPU (gst-launch) |
 |---|---:|---:|---:|---:|---|---:|
-| 720p30 H.264 RTP + MP4 | 32.37 s | 12 MB | ~2930 kb/s | ~29.35 fps | H.264 (x264) Hi>
+| 720p30 H.264 RTP + MP4 | 32.37 s | 12 MB | ~2930 kb/s | ~29.35 fps | H.264 (x264) High | ~73%–107% (avg ~93%) |
+
+### How video performance was measured (ffprobe)
+
+After stopping the pipeline with `Ctrl+C` (so the MP4 is finalized), collect file size and stream stats:
+
+```bash
+# File size
+ls -lh out_720p30.mp4
+
+# Container + stream info (duration / bitrate / fps / codec profile)
+ffprobe -hide_banner out_720p30.mp4
+
+# Optional: print only the first ~40 lines (easier to paste into README/issues)
+ffprobe -hide_banner out_720p30.mp4 | sed -n '1,40p'
+
 
 ### How CPU was measured
 ```bash
 pgrep -af gst-launch-1.0
 # Use the PID printed above:
 for i in {1..5}; do top -b -n 1 -p <PID> | sed -n '1,12p'; echo "----"; sleep 1; done
+
 ```
 
 ---
