@@ -79,6 +79,6 @@ ls -lh out_*.mp4
 
 Copy the MP4 to your host machine
 - From Windows (PowerShell)
--- scp hello@<PI_IP>:~/demo-cam/out_720p30.mp4 .
+-- scp name_raspberry@<PI_IP>:~/demo-cam/out_720p30.mp4 .
 - From macOS
--- scp hello@<PI_IP>:~/demo-cam/out_720p30.mp4 .
+-- scp name_raspberry@<PI_IP>:~/demo-cam/out_720p30.mp4 .
