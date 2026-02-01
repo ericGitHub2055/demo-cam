@@ -124,6 +124,7 @@ Test setup: Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode v
 pgrep -af gst-launch-1.0
 # Use the PID printed above:
 for i in {1..5}; do top -b -n 1 -p <PID> | sed -n '1,12p'; echo "----"; sleep 1; done
+```
 
 ---
 
