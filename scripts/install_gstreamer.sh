@@ -15,6 +15,7 @@ sudo apt install -y \
   git \
   v4l-utils \
   ffmpeg \
+  tcpdump \
   gstreamer1.0-tools \
   gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good \

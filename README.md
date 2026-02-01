@@ -81,6 +81,14 @@ If VLC shows no video:
 - Confirm the script is streaming to `<HOST_MACHINE_IP>` and port `5000`.
 - In `hostmachine/h264.sdp`, set `c=IN IP4 <HOST_MACHINE_IP>` if needed.
 
+### Windows host notes (VLC)
+
+If VLC shows no video (traffic cone):
+- Confirm the Pi is streaming to your Windows IP and port (default `5000`).
+- Allow inbound UDP `5000` in Windows Firewall, or allow VLC as an app.
+- If needed, edit `hostmachine/h264.sdp` and set:
+  - `c=IN IP4 <HOST_MACHINE_IP>`
+
 ### Output files
 
 By default, the script writes the MP4 to the current directory, e.g.:
@@ -102,6 +110,15 @@ From macOS:
 ```bash
 scp hello@<PI_IP>:~/demo-cam/out_720p30.mp4 .
 ```
+
+## Performance (measured)
+
+Tested on Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode via `x264enc`.
+
+| Mode | Duration | Output size | Video bitrate | FPS | Codec / Profile |
+|---|---:|---:|---:|---:|---|
+| 720p30 H.264 RTP + MP4 | 32.37 s | 12 MB | ~2930 kb/s | ~29.35 fps | H.264 (x264) High |
+
 
 ---
 
@@ -127,3 +144,17 @@ Raw YUYV at higher resolutions may be limited by USB bandwidth.
 
 - This repo intentionally prioritizes **reproducibility** and **fast validation** over maximum performance.
 - The pipeline uses software encoding (`x264enc`) for portability. If your platform provides a hardware H.264 encoder element, you can swap it in later.
+
+## Performance (measured)
+
+Test setup: Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode via `x264enc` (`speed-preset=veryfast`, `bitrate=3000`), split to RTP/UDP + MP4.
+
+| Mode | Duration | Output size | Video bitrate | FPS | Codec / Profile | Pi CPU (gst-launch) |
+|---|---:|---:|---:|---:|---|---:|
+| 720p30 H.264 RTP + MP4 | 32.37 s | 12 MB | ~2930 kb/s | ~29.35 fps | H.264 (x264) High | ~73%–107% (avg ~93%) |
+
+### How CPU was measured
+```bash
+pgrep -af gst-launch-1.0
+# Use the PID printed above:
+for i in {1..5}; do top -b -n 1 -p <PID> | sed -n '1,12p'; echo "----"; sleep 1; done
