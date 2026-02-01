@@ -132,7 +132,7 @@ ffprobe -hide_banner out_720p30.mp4
 
 # Optional: print only the first ~40 lines (easier to paste into README/issues)
 ffprobe -hide_banner out_720p30.mp4 | sed -n '1,40p'
-
+```
 
 ### How CPU was measured
 ```bash
