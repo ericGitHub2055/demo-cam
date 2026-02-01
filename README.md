@@ -1,19 +1,11 @@
 # demo-cam
 Reproducible camera pipeline demo on Raspberry Pi 5 + Logitech C920S (GStreamer → ROS2 → perception/behavior).
 
-## Quick Start (Pi)
+## Quick Start (Raspberry Pi)
 
-On Raspberry Pi 5 (Raspberry Pi OS 64-bit):
-
+Install dependencies:
 ```bash
-# 1) Base setup
-./scripts/install_base.sh
-
-# 2) Install GStreamer
 ./scripts/install_gstreamer.sh
 
-# 3) Probe camera (C920S)
-./scripts/camera_probe.sh
+./scripts/stream_and_record_h264.sh --host <HOST_MACHINE_IP> --port 5000 --res 1280x720 --fps 30 --bitrate 3000 --out out_720p30.mp4
 
-# 4) Record 10s MP4
-./scripts/gst_record_mp4.sh /dev/video0 out.mp4
