@@ -132,6 +132,13 @@ ffprobe -hide_banner out_720p30.mp4
 
 # Optional: print only the first ~40 lines (easier to paste into README/issues)
 ffprobe -hide_banner out_720p30.mp4 | sed -n '1,40p'
+
+# Optional: structured output (JSON)
+ffprobe -v error \
+  -select_streams v:0 \
+  -show_entries stream=codec_name,profile,width,height,r_frame_rate,avg_frame_rate,bit_rate \
+  -show_entries format=duration,bit_rate,size \
+  -of json out_720p30.mp4
 ```
 
 ### How CPU was measured
