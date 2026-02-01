@@ -75,6 +75,7 @@ By default, the script writes the MP4 to the current directory, e.g.:
 Verify:
 ```bash
 ls -lh out_*.mp4
+、、、
 
 Copy the MP4 to your host machine
 - From Windows (PowerShell)
