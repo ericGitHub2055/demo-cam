@@ -61,6 +61,7 @@ cd ~/demo-cam
   --fps 30 \
   --bitrate 3000 \
   --out out_720p30.mp4
+```
 
 ### Preview on the host machine (VLC)
 Open the SDP file in VLC:
