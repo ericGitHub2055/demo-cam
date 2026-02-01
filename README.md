@@ -43,10 +43,14 @@ This repo focuses on the fastest path to validate an end-to-end camera pipeline:
 
 ---
 
-## Quick Start
+### Where to run each step
 
-### 1) Clone the repo (on Raspberry Pi)
+- **Raspberry Pi**: run all commands under `./scripts/` (install, stream, record)
+- **Host machine (Windows/macOS)**: use VLC to open the SDP file for preview
+
+### Raspberry Pi (run in a terminal on the Pi)
 ```bash
-cd ~
-git clone https://github.com/ericGitHub2055/demo-cam.git
-cd demo-cam
+cd ~/demo-cam
+./scripts/install_gstreamer.sh
+./scripts/stream_and_record_h264.sh --host <HOST_MACHINE_IP> --port 5000 --out out_720p30.mp4
+
