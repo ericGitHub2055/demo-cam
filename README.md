@@ -60,16 +60,51 @@ cd ~/demo-cam
 
 ./scripts/install_gstreamer.sh
 
+# Baseline (good quality / higher CPU)
 ./scripts/stream_and_record_h264.sh \
   --host <HOST_MACHINE_IP> \
   --port 5000 \
   --res 1280x720 \
   --fps 30 \
   --bitrate 3000 \
-  --out out_720p30.mp4
+  --preset veryfast \
+  --gop 60 \
+  --out out_veryfast.mp4
+
+# Low CPU option (recommended for robotics bring-up)
+./scripts/stream_and_record_h264.sh \
+  --host <HOST_MACHINE_IP> \
+  --port 5000 \
+  --res 1280x720 \
+  --fps 30 \
+  --bitrate 3000 \
+  --preset ultrafast \
+  --gop 60 \
+  --out out_ultrafast.mp4
+
 ```
 
 Stop with `Ctrl+C` to finalize the MP4 file correctly.
+
+## Script options
+
+`./scripts/stream_and_record_h264.sh` supports:
+
+- `--host <ip>`: host machine IP (VLC receiver)
+- `--port <port>`: UDP port for RTP
+- `--dev <device>`: V4L2 device (e.g. `/dev/video0`)
+- `--res <WxH>`: resolution (e.g. `1280x720`)
+- `--fps <n>`: frame rate
+- `--bitrate <kbps>`: H.264 bitrate in kbps
+- `--preset <name>`: x264 speed preset (`ultrafast`, `superfast`, `veryfast`, `faster`, `fast`, `medium`, ...)
+- `--gop <n>`: GOP size (`key-int-max`)
+- `--out <file>`: output MP4 filename
+- `--pt <n>`: RTP payload type (default `96`)
+
+Show help:
+```bash
+./scripts/stream_and_record_h264.sh --help
+```
 
 ### Preview on the host machine (VLC)
 
@@ -113,11 +148,12 @@ scp hello@<PI_IP>:~/demo-cam/out_720p30.mp4 .
 
 ## Performance (measured)
 
-Test setup: Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode via `x264enc` (`speed-preset=veryfast`, `bitrate=3000`), split to RTP/UDP + MP4.
+Test setup: Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode via `x264enc`, split to RTP/UDP + MP4.
 
 | Mode | Duration | Output size | Video bitrate | FPS | Codec / Profile | Pi CPU (gst-launch) |
 |---|---:|---:|---:|---:|---|---:|
-| 720p30 H.264 RTP + MP4 | 32.37 s | 12 MB | ~2930 kb/s | ~29.35 fps | H.264 (x264) High | ~73%–107% (avg ~93%) |
+| 720p30 RTP + MP4 (`preset=veryfast`, `bitrate=3000`) | 65.68 s | 24 MB | ~2972 kb/s | ~29.72 fps | H.264 (x264) High | 86.7%–120.0% (avg ~102.7%) |
+| 720p30 RTP + MP4 (`preset=ultrafast`, `bitrate=3000`) | 56.09 s | 21 MB | ~2994 kb/s | ~29.86 fps | H.264 (x264) Constrained Baseline | 60.0%–73.3% (avg ~65.3%) |
 
 ### How video performance was measured (ffprobe)
 
