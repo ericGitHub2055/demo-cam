@@ -1,21 +1,29 @@
+# =========================
 # OS / editor
+# =========================
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 
+# =========================
 # Python
+# =========================
 __pycache__/
 *.pyc
 .venv/
 venv/
 
+# =========================
 # Logs / temp
+# =========================
 logs/
 *.log
 *.tmp
 
+# =========================
 # Videos / datasets (do not commit large files)
+# =========================
 *.mp4
 *.mov
 *.mkv
@@ -24,15 +32,37 @@ logs/
 datasets/
 captures/
 
+# Benchmarks outputs (often large / transient)
+benchmarks/out_*.mp4
+benchmarks/cpu_*.txt
+benchmarks/*.json
+
+# ffmpeg/ffprobe artifacts
+ffmpeg*.log
+ffprobe*.log
+
+# =========================
 # ROS2 / bag files (large)
+# =========================
 rosbag2_*/
 *.db3
 *.mcap
 
+# ROS2 build artifacts (colcon)
+build/
+install/
+log/
+
+# =========================
 # Secrets / local configs
+# =========================
 *.env
 .env.*
 secrets*
 *password*
+*.key
+*.pem
+*.p12
+*.pfx
 config.local.*
 configs/*.local.*
