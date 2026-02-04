@@ -66,3 +66,12 @@ secrets*
 *.pfx
 config.local.*
 configs/*.local.*
+
+# Core dumps
+core
+core.*
+
+# ROS2 build artifacts
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/

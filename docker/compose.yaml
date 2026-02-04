@@ -1,0 +1,13 @@
+services:
+  ros:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    network_mode: host
+    privileged: true
+    environment:
+      ROS_DOMAIN_ID: "0"
+    volumes:
+      - ../:/work/demo-cam
+    working_dir: /work/demo-cam
+    command: ["bash", "-lc", "sleep infinity"]

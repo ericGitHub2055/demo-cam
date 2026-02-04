@@ -1,0 +1,12 @@
+/**:
+  ros__parameters:
+    family: "36h11"
+    max_hamming: 0
+    detector:
+      threads: 2
+      decimate: 2.0
+      blur: 0.0
+      sharpen: 0.25
+      refine: true
+    pose_estimation_method: ""
+    image_transport: "raw"

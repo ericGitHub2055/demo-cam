@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>demo_cam_ros</name>
+  <version>0.0.1</version>
+  <description>Minimal USB camera bring-up + AprilTag detection with QoS relay.</description>
+  <maintainer email="you@example.com">you</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>usb_cam</exec_depend>
+  <exec_depend>apriltag_ros</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
