@@ -75,3 +75,10 @@ core.*
 ros2_ws/build/
 ros2_ws/install/
 ros2_ws/log/
+
+# =========================
+# Project transient outputs / large files
+# =========================
+outputs/
+models/
+*.pid
