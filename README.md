@@ -1,18 +1,29 @@
 # demo-cam
 
-A minimal, reproducible **camera bring-up + streaming + recording** demo on **Raspberry Pi 5** using a **UVC USB webcam** (tested with **Logitech C920S**).
+A minimal, reproducible **camera bring-up + streaming + detection** demo on **Raspberry Pi 5** using a **UVC USB webcam** (tested with **Logitech C920S**).
 
-This repo focuses on the fastest path to validate an end-to-end camera pipeline:
+This repo focuses on the fastest path to validate an end-to-end camera pipeline across **three layers**:
 
-- Capture (**MJPEG** from UVC webcam)
-- Decode + encode (**H.264** via `x264enc`)
-- **Split** into:
-  - **RTP/UDP streaming** to a host machine (Windows/macOS)
-  - **MP4 recording** on the Raspberry Pi
-- (Optional) **ROS 2 bring-up** in Docker:
-  - `usb_cam` publishes `/camera/image_raw` + `/camera/camera_info`
-  - `apriltag_ros` publishes `/camera/detections`
-  - `demo_cam_ros/image_qos_relay` fixes QoS mismatch (RELIABLE → BEST_EFFORT) for vision consumers
+1) **Phase A.1:GStreamer (stream + record)** — native, no ROS  
+   - Capture (**MJPEG** from UVC webcam)
+   - Decode + encode (**H.264** via `x264enc`)
+   - **Split** into:
+     - **RTP/UDP streaming** to a host machine (Windows/macOS)
+     - **MP4 recording** on the Raspberry Pi
+
+2) **Phase A.2:ROS 2 (AprilTag detection) in Docker** — ROS2 bring-up baseline  
+   - `usb_cam` publishes `/camera/image_raw` + `/camera/camera_info`
+   - `apriltag_ros` publishes `/camera/detections`
+   - `demo_cam_ros/image_qos_relay` fixes QoS mismatch (RELIABLE → BEST_EFFORT) for vision consumers
+
+3) **Phase B: ROS 2 YOLOv8 ONNX detection + MJPEG display (Docker, Raspberry Pi)** — real-time object detection + web preview  
+   - `usb_cam` publishes `/image_raw`
+   - `demo_cam_detect/detector_node` runs **YOLOv8 ONNX (onnxruntime)** and publishes:
+     - `/detections` (`vision_msgs/Detection2DArray`)
+     - `/detections_image` (`sensor_msgs/Image`) overlay visualization
+     - `/detector/metrics` (timing + FPS)
+   - `demo_cam_detect/mjpeg_bridge` serves:
+     - `http://<PI_IP>:8080/stream.mjpg`
 
 ---
 
@@ -51,6 +62,18 @@ This repo focuses on the fastest path to validate an end-to-end camera pipeline:
 
 - `ros2_ws/src/demo_cam_ros/config/apriltag.yaml`  
   Parameters for `apriltag_ros` (tag family, max_hamming, optional pose estimation, etc.)
+  
+### Phase B: ROS 2 YOLOv8 ONNX detection + MJPEG display (Docker, Raspberry Pi)
+
+- `docker/compose.ros2.yaml` + `docker/Dockerfile.ros2`  
+  ROS 2 Jazzy + Python deps (onnxruntime/cv2) for YOLO inference in Docker.
+
+- `ros2_ws/src/demo_cam_detect/`  
+  - `detector_node`: `/image_raw` → `/detections` + `/detections_image` + `/detector/metrics`  
+  - `mjpeg_bridge`: `/detections_image` → `http://<PI_IP>:8080/stream.mjpg`
+
+- `scripts/phaseB_start.sh` / `scripts/phaseB_stop.sh` / `scripts/phaseB_healthcheck.sh`  
+  One-click bring-up + validation for Phase B pipeline.
 
 ---
 
@@ -81,7 +104,7 @@ This repo focuses on the fastest path to validate an end-to-end camera pipeline:
 - **Raspberry Pi**: run commands under `./scripts/` (install, stream, record, benchmark)
 - **Host machine (Windows/macOS)**: use VLC to open the SDP file for preview
 
-### Raspberry Pi (run in a terminal on the Pi)
+#### Raspberry Pi (run in a terminal on the Pi)
 
 ```bash
 cd ~
@@ -91,13 +114,13 @@ cd ~/demo-cam
 ./scripts/install_gstreamer.sh
 ```
 
-#### Baseline (good quality / higher CPU)
+##### Baseline (good quality / higher CPU)
 
 ```bash
 ./scripts/stream_and_record_h264.sh   --host <HOST_MACHINE_IP>   --port 5000   --res 1280x720   --fps 30   --bitrate 3000   --preset veryfast   --gop 60   --out out_veryfast.mp4
 ```
 
-#### Low CPU option (recommended for robotics bring-up)
+##### Low CPU option (recommended for robotics bring-up)
 
 ```bash
 ./scripts/stream_and_record_h264.sh   --host <HOST_MACHINE_IP>   --port 5000   --res 1280x720   --fps 30   --bitrate 3000   --preset ultrafast   --gop 60   --out out_ultrafast.mp4
@@ -107,7 +130,7 @@ Stop with `Ctrl+C` to finalize the MP4 file correctly.
 
 ---
 
-## Script options
+### Script options
 
 `./scripts/stream_and_record_h264.sh` supports:
 
@@ -130,9 +153,9 @@ Show help:
 
 ---
 
-## Host preview (VLC)
+### Host preview (VLC)
 
-### Preview on the host machine (Windows/macOS)
+#### Preview on the host machine (Windows/macOS)
 
 Open the SDP file in VLC:
 
@@ -144,7 +167,7 @@ If VLC shows no video:
 - Confirm the Pi is streaming to `<HOST_MACHINE_IP>` and port `5000`.
 - In `hostmachine/h264.sdp`, set `c=IN IP4 <HOST_MACHINE_IP>` if needed.
 
-### Windows host notes (VLC)
+#### Windows host notes (VLC)
 
 If VLC shows no video (traffic cone):
 
@@ -155,7 +178,7 @@ If VLC shows no video (traffic cone):
 
 ---
 
-## Output files
+### Output files
 
 By default, the script writes the MP4 to the current directory, e.g.:
 
@@ -168,7 +191,7 @@ Verify:
 ls -lh out_*.mp4
 ```
 
-### Copy the MP4 to your host machine
+#### Copy the MP4 to your host machine
 
 From Windows (PowerShell):
 
@@ -184,7 +207,7 @@ scp hello@<PI_IP>:~/demo-cam/out_veryfast.mp4 .
 
 ---
 
-## Benchmark x264 presets
+### Benchmark x264 presets
 
 This is the recommended way to compare **CPU vs. output characteristics** across x264 presets.
 
@@ -209,9 +232,9 @@ column -s, -t < benchmarks/results.csv | head
 
 ---
 
-## Measurement methodology
+### Measurement methodology
 
-### How video performance was measured (ffprobe)
+#### How video performance was measured (ffprobe)
 
 After stopping the pipeline with `Ctrl+C` (so the MP4 is finalized), collect file size and stream stats:
 
@@ -229,7 +252,7 @@ ffprobe -hide_banner out_veryfast.mp4 | sed -n '1,40p'
 ffprobe -v error   -select_streams v:0   -show_entries stream=codec_name,profile,width,height,r_frame_rate,avg_frame_rate,bit_rate   -show_entries format=duration,bit_rate,size   -of json out_veryfast.mp4
 ```
 
-### How CPU was measured
+#### How CPU was measured
 
 CPU usage was measured on the **actual pipeline process** (`gst-launch-1.0`), not the wrapper shell script.
 
@@ -250,7 +273,7 @@ Notes:
 
 ---
 
-## Performance (measured)
+### Performance (measured)
 
 Test setup: Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode via `x264enc`, split to RTP/UDP + MP4.
 
@@ -261,7 +284,7 @@ Test setup: Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode v
 
 ---
 
-## Optional: verify the webcam
+### Optional: verify the webcam
 
 List devices:
 
@@ -379,6 +402,135 @@ docker compose -f docker/compose.yaml exec ros bash -lc '
 Common sanity checks:
 - `apriltag` subscribes to **`/camera/image_raw_be`** (BEST_EFFORT)
 - `apriltag` publishes **`/camera/detections`**
+
+---
+
+
+
+## Phase B: ROS 2 YOLOv8 ONNX detection + MJPEG display (Docker, Raspberry Pi)
+
+Goal: run an end-to-end, low-latency detector pipeline in ROS 2:
+
+`/image_raw` → `demo_cam_detect/detector_node` → `/detections` + `/detections_image` → `demo_cam_detect/mjpeg_bridge` → MJPEG web preview
+
+### What you get (Phase B)
+
+- **Detector package**: `ros2_ws/src/demo_cam_detect/`
+  - `detector_node`
+    - Subscribes: `sensor_msgs/msg/Image` (default topic: `/image_raw`)
+    - Runs: **YOLOv8 ONNX** via `onnxruntime` (CPUExecutionProvider)
+    - Publishes:
+      - `/detections` (`vision_msgs/msg/Detection2DArray`)
+      - `/detections_image` (`sensor_msgs/msg/Image`) (overlay: boxes + metrics text)
+      - `/detector/metrics` (`std_msgs/msg/Float32MultiArray`) = `[fps, pre_ms, infer_ms, post_ms, total_ms, det_count]`
+  - `mjpeg_bridge`
+    - Subscribes: an image topic (default `/detections_image`)
+    - Serves: `http://<PI_IP>:8080/stream.mjpg`
+
+- **Docker ROS2** (Jazzy on Pi): `docker/compose.ros2.yaml`, `docker/Dockerfile.ros2`
+- **One-click scripts** (run on Pi host):  
+  `scripts/phaseB_start.sh`, `scripts/phaseB_stop.sh`, `scripts/phaseB_healthcheck.sh`
+
+### Quick Start (Phase B)
+
+#### 0) Start the ROS2 container (persistent)
+
+```bash
+cd ~/demo-cam
+docker compose -f docker/compose.ros2.yaml up -d --remove-orphans
+docker compose -f docker/compose.ros2.yaml ps
+```
+
+#### 1) One-command launch (recommended)
+
+```bash
+cd ~/demo-cam
+./scripts/phaseB_start.sh
+```
+
+Open in a browser on your host machine (Windows/macOS):
+
+- `http://<PI_IP>:8080/stream.mjpg`
+
+#### 2) Health check
+
+```bash
+cd ~/demo-cam
+./scripts/phaseB_healthcheck.sh
+```
+
+Expected:
+- publishers exist for `/image_raw`, `/detections`, `/detections_image`
+- MJPEG port 8080 accepts connections
+- HTTP may WARN if the stream is up but no frames were produced yet (try again after a few seconds)
+
+#### 3) Stop
+
+```bash
+cd ~/demo-cam
+./scripts/phaseB_stop.sh
+```
+
+If you still see the stream after stop, it usually means older processes are still alive in the container. Force kill inside container:
+
+```bash
+cd ~/demo-cam
+docker compose -f docker/compose.ros2.yaml exec -T ros2 bash -lc '
+  pkill -f usb_cam_node_exe || true
+  pkill -f detector_node || true
+  pkill -f mjpeg_bridge || true
+'
+```
+
+### Manual run (Phase B, inside container)
+
+```bash
+cd ~/demo-cam
+docker compose -f docker/compose.ros2.yaml exec -it ros2 bash
+```
+
+Inside container:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /work/demo-cam/ros2_ws/install/setup.bash
+
+# 1) Camera publisher
+ros2 run usb_cam usb_cam_node_exe --ros-args \
+  --params-file /work/demo-cam/ros2_ws/src/demo_cam_ros/config/usb_cam.yaml
+
+# 2) Detector (example: 416 for higher FPS)
+ros2 run demo_cam_detect detector_node --ros-args \
+  -p model:=/work/demo-cam/models/yolov8n_416.onnx \
+  -p imgsz:=416 \
+  -p conf:=0.25 \
+  -p iou:=0.45 \
+  -p image_topic:=/image_raw \
+  -p publish_viz:=true \
+  -p viz_topic:=/detections_image
+
+# 3) MJPEG bridge
+ros2 run demo_cam_detect mjpeg_bridge --ros-args \
+  -p image_topic:=/detections_image \
+  -p port:=8080 \
+  -p jpeg_quality:=80
+```
+
+Verify topics + rate:
+
+```bash
+ros2 topic list | grep -E "image_raw|detections"
+ros2 topic hz /image_raw
+ros2 topic hz /detections
+ros2 topic hz /detections_image
+```
+
+### Performance baseline (Pi 5, typical)
+
+Your measured numbers (example):
+- `imgsz=640`: ~3–4 FPS, infer ~260–275 ms
+- `imgsz=416`: ~7–9 FPS, infer ~100–110 ms
+
 
 ---
 

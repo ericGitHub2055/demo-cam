@@ -1,0 +1,24 @@
+FROM ros:jazzy-ros-base
+SHELL ["/bin/bash", "-lc"]
+
+# ROS + system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-venv python3-full \
+    ros-jazzy-vision-msgs \
+    ros-jazzy-cv-bridge \
+    ros-jazzy-image-transport \
+    ros-jazzy-rqt-image-view \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create venv for pip packages (PEP 668-safe)
+ENV VENV_PATH=/opt/venv
+RUN python3 -m venv ${VENV_PATH} \
+    && ${VENV_PATH}/bin/pip install -U pip wheel \
+    && ${VENV_PATH}/bin/pip install -U numpy onnxruntime
+
+# Put venv first on PATH
+ENV PATH="${VENV_PATH}/bin:${PATH}"
+ENV ORT_LOG_SEVERITY_LEVEL=3
+
+WORKDIR /work/demo-cam
+CMD ["bash", "-lc", "sleep infinity"]
