@@ -82,3 +82,7 @@ ros2_ws/log/
 outputs/
 models/
 *.pid
+
+assets/
+tools/
+run
