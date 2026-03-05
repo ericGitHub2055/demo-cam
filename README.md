@@ -1,18 +1,29 @@
 # demo-cam
 
-A minimal, reproducible **camera bring-up + streaming + recording** demo on **Raspberry Pi 5** using a **UVC USB webcam** (tested with **Logitech C920S**).
+A minimal, reproducible **camera bring-up + streaming + detection** demo on **Raspberry Pi 5** using a **UVC USB webcam** (tested with **Logitech C920S**).
 
-This repo focuses on the fastest path to validate an end-to-end camera pipeline:
+This repo focuses on the fastest path to validate an end-to-end camera pipeline across **three layers**:
 
-- Capture (**MJPEG** from UVC webcam)
-- Decode + encode (**H.264** via `x264enc`)
-- **Split** into:
-  - **RTP/UDP streaming** to a host machine (Windows/macOS)
-  - **MP4 recording** on the Raspberry Pi
-- (Optional) **ROS 2 bring-up** in Docker:
-  - `usb_cam` publishes `/camera/image_raw` + `/camera/camera_info`
-  - `apriltag_ros` publishes `/camera/detections`
-  - `demo_cam_ros/image_qos_relay` fixes QoS mismatch (RELIABLE → BEST_EFFORT) for vision consumers
+1) **Phase A.1:GStreamer (stream + record)** — native, no ROS  
+   - Capture (**MJPEG** from UVC webcam)
+   - Decode + encode (**H.264** via `x264enc`)
+   - **Split** into:
+     - **RTP/UDP streaming** to a host machine (Windows/macOS)
+     - **MP4 recording** on the Raspberry Pi
+
+2) **Phase A.2:ROS 2 (AprilTag detection) in Docker** — ROS2 bring-up baseline  
+   - `usb_cam` publishes `/camera/image_raw` + `/camera/camera_info`
+   - `apriltag_ros` publishes `/camera/detections`
+   - `demo_cam_ros/image_qos_relay` fixes QoS mismatch (RELIABLE → BEST_EFFORT) for vision consumers
+
+3) **Phase B: ROS 2 YOLOv8 ONNX detection + MJPEG display (Docker, Raspberry Pi)** — real-time object detection + web preview  
+   - `usb_cam` publishes `/image_raw`
+   - `demo_cam_detect/detector_node` runs **YOLOv8 ONNX (onnxruntime)** and publishes:
+     - `/detections` (`vision_msgs/Detection2DArray`)
+     - `/detections_image` (`sensor_msgs/Image`) overlay visualization
+     - `/detector/metrics` (timing + FPS)
+   - `demo_cam_detect/mjpeg_bridge` serves:
+     - `http://<PI_IP>:8080/stream.mjpg`
 
 ---
 
@@ -51,6 +62,18 @@ This repo focuses on the fastest path to validate an end-to-end camera pipeline:
 
 - `ros2_ws/src/demo_cam_ros/config/apriltag.yaml`  
   Parameters for `apriltag_ros` (tag family, max_hamming, optional pose estimation, etc.)
+  
+### Phase B: ROS 2 YOLOv8 ONNX detection + MJPEG display (Docker, Raspberry Pi)
+
+- `docker/compose.ros2.yaml` + `docker/Dockerfile.ros2`  
+  ROS 2 Jazzy + Python deps (onnxruntime/cv2) for YOLO inference in Docker.
+
+- `ros2_ws/src/demo_cam_detect/`  
+  - `detector_node`: `/image_raw` → `/detections` + `/detections_image` + `/detector/metrics`  
+  - `mjpeg_bridge`: `/detections_image` → `http://<PI_IP>:8080/stream.mjpg`
+
+- `scripts/phaseB_start.sh` / `scripts/phaseB_stop.sh` / `scripts/phaseB_healthcheck.sh`  
+  One-click bring-up + validation for Phase B pipeline.
 
 ---
 
@@ -81,7 +104,7 @@ This repo focuses on the fastest path to validate an end-to-end camera pipeline:
 - **Raspberry Pi**: run commands under `./scripts/` (install, stream, record, benchmark)
 - **Host machine (Windows/macOS)**: use VLC to open the SDP file for preview
 
-### Raspberry Pi (run in a terminal on the Pi)
+#### Raspberry Pi (run in a terminal on the Pi)
 
 ```bash
 cd ~
@@ -91,13 +114,13 @@ cd ~/demo-cam
 ./scripts/install_gstreamer.sh
 ```
 
-#### Baseline (good quality / higher CPU)
+##### Baseline (good quality / higher CPU)
 
 ```bash
 ./scripts/stream_and_record_h264.sh   --host <HOST_MACHINE_IP>   --port 5000   --res 1280x720   --fps 30   --bitrate 3000   --preset veryfast   --gop 60   --out out_veryfast.mp4
 ```
 
-#### Low CPU option (recommended for robotics bring-up)
+##### Low CPU option (recommended for robotics bring-up)
 
 ```bash
 ./scripts/stream_and_record_h264.sh   --host <HOST_MACHINE_IP>   --port 5000   --res 1280x720   --fps 30   --bitrate 3000   --preset ultrafast   --gop 60   --out out_ultrafast.mp4
@@ -107,7 +130,7 @@ Stop with `Ctrl+C` to finalize the MP4 file correctly.
 
 ---
 
-## Script options
+### Script options
 
 `./scripts/stream_and_record_h264.sh` supports:
 
@@ -130,9 +153,9 @@ Show help:
 
 ---
 
-## Host preview (VLC)
+### Host preview (VLC)
 
-### Preview on the host machine (Windows/macOS)
+#### Preview on the host machine (Windows/macOS)
 
 Open the SDP file in VLC:
 
@@ -144,7 +167,7 @@ If VLC shows no video:
 - Confirm the Pi is streaming to `<HOST_MACHINE_IP>` and port `5000`.
 - In `hostmachine/h264.sdp`, set `c=IN IP4 <HOST_MACHINE_IP>` if needed.
 
-### Windows host notes (VLC)
+#### Windows host notes (VLC)
 
 If VLC shows no video (traffic cone):
 
@@ -155,7 +178,7 @@ If VLC shows no video (traffic cone):
 
 ---
 
-## Output files
+### Output files
 
 By default, the script writes the MP4 to the current directory, e.g.:
 
@@ -168,7 +191,7 @@ Verify:
 ls -lh out_*.mp4
 ```
 
-### Copy the MP4 to your host machine
+#### Copy the MP4 to your host machine
 
 From Windows (PowerShell):
 
@@ -184,7 +207,7 @@ scp hello@<PI_IP>:~/demo-cam/out_veryfast.mp4 .
 
 ---
 
-## Benchmark x264 presets
+### Benchmark x264 presets
 
 This is the recommended way to compare **CPU vs. output characteristics** across x264 presets.
 
@@ -209,9 +232,9 @@ column -s, -t < benchmarks/results.csv | head
 
 ---
 
-## Measurement methodology
+### Measurement methodology
 
-### How video performance was measured (ffprobe)
+#### How video performance was measured (ffprobe)
 
 After stopping the pipeline with `Ctrl+C` (so the MP4 is finalized), collect file size and stream stats:
 
@@ -229,7 +252,7 @@ ffprobe -hide_banner out_veryfast.mp4 | sed -n '1,40p'
 ffprobe -v error   -select_streams v:0   -show_entries stream=codec_name,profile,width,height,r_frame_rate,avg_frame_rate,bit_rate   -show_entries format=duration,bit_rate,size   -of json out_veryfast.mp4
 ```
 
-### How CPU was measured
+#### How CPU was measured
 
 CPU usage was measured on the **actual pipeline process** (`gst-launch-1.0`), not the wrapper shell script.
 
@@ -250,7 +273,7 @@ Notes:
 
 ---
 
-## Performance (measured)
+### Performance (measured)
 
 Test setup: Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode via `x264enc`, split to RTP/UDP + MP4.
 
@@ -261,7 +284,7 @@ Test setup: Raspberry Pi 5 + Logitech C920S (UVC MJPEG input), software encode v
 
 ---
 
-## Optional: verify the webcam
+### Optional: verify the webcam
 
 List devices:
 
