@@ -382,6 +382,135 @@ Common sanity checks:
 
 ---
 
+
+
+## Phase B: ROS 2 YOLOv8 ONNX detection + MJPEG display (Docker, Raspberry Pi)
+
+Goal: run an end-to-end, low-latency detector pipeline in ROS 2:
+
+`/image_raw` → `demo_cam_detect/detector_node` → `/detections` + `/detections_image` → `demo_cam_detect/mjpeg_bridge` → MJPEG web preview
+
+### What you get (Phase B)
+
+- **Detector package**: `ros2_ws/src/demo_cam_detect/`
+  - `detector_node`
+    - Subscribes: `sensor_msgs/msg/Image` (default topic: `/image_raw`)
+    - Runs: **YOLOv8 ONNX** via `onnxruntime` (CPUExecutionProvider)
+    - Publishes:
+      - `/detections` (`vision_msgs/msg/Detection2DArray`)
+      - `/detections_image` (`sensor_msgs/msg/Image`) (overlay: boxes + metrics text)
+      - `/detector/metrics` (`std_msgs/msg/Float32MultiArray`) = `[fps, pre_ms, infer_ms, post_ms, total_ms, det_count]`
+  - `mjpeg_bridge`
+    - Subscribes: an image topic (default `/detections_image`)
+    - Serves: `http://<PI_IP>:8080/stream.mjpg`
+
+- **Docker ROS2** (Jazzy on Pi): `docker/compose.ros2.yaml`, `docker/Dockerfile.ros2`
+- **One-click scripts** (run on Pi host):  
+  `scripts/phaseB_start.sh`, `scripts/phaseB_stop.sh`, `scripts/phaseB_healthcheck.sh`
+
+### Quick Start (Phase B)
+
+#### 0) Start the ROS2 container (persistent)
+
+```bash
+cd ~/demo-cam
+docker compose -f docker/compose.ros2.yaml up -d --remove-orphans
+docker compose -f docker/compose.ros2.yaml ps
+```
+
+#### 1) One-command launch (recommended)
+
+```bash
+cd ~/demo-cam
+./scripts/phaseB_start.sh
+```
+
+Open in a browser on your host machine (Windows/macOS):
+
+- `http://<PI_IP>:8080/stream.mjpg`
+
+#### 2) Health check
+
+```bash
+cd ~/demo-cam
+./scripts/phaseB_healthcheck.sh
+```
+
+Expected:
+- publishers exist for `/image_raw`, `/detections`, `/detections_image`
+- MJPEG port 8080 accepts connections
+- HTTP may WARN if the stream is up but no frames were produced yet (try again after a few seconds)
+
+#### 3) Stop
+
+```bash
+cd ~/demo-cam
+./scripts/phaseB_stop.sh
+```
+
+If you still see the stream after stop, it usually means older processes are still alive in the container. Force kill inside container:
+
+```bash
+cd ~/demo-cam
+docker compose -f docker/compose.ros2.yaml exec -T ros2 bash -lc '
+  pkill -f usb_cam_node_exe || true
+  pkill -f detector_node || true
+  pkill -f mjpeg_bridge || true
+'
+```
+
+### Manual run (Phase B, inside container)
+
+```bash
+cd ~/demo-cam
+docker compose -f docker/compose.ros2.yaml exec -it ros2 bash
+```
+
+Inside container:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /work/demo-cam/ros2_ws/install/setup.bash
+
+# 1) Camera publisher
+ros2 run usb_cam usb_cam_node_exe --ros-args \
+  --params-file /work/demo-cam/ros2_ws/src/demo_cam_ros/config/usb_cam.yaml
+
+# 2) Detector (example: 416 for higher FPS)
+ros2 run demo_cam_detect detector_node --ros-args \
+  -p model:=/work/demo-cam/models/yolov8n_416.onnx \
+  -p imgsz:=416 \
+  -p conf:=0.25 \
+  -p iou:=0.45 \
+  -p image_topic:=/image_raw \
+  -p publish_viz:=true \
+  -p viz_topic:=/detections_image
+
+# 3) MJPEG bridge
+ros2 run demo_cam_detect mjpeg_bridge --ros-args \
+  -p image_topic:=/detections_image \
+  -p port:=8080 \
+  -p jpeg_quality:=80
+```
+
+Verify topics + rate:
+
+```bash
+ros2 topic list | grep -E "image_raw|detections"
+ros2 topic hz /image_raw
+ros2 topic hz /detections
+ros2 topic hz /detections_image
+```
+
+### Performance baseline (Pi 5, typical)
+
+Your measured numbers (example):
+- `imgsz=640`: ~3–4 FPS, infer ~260–275 ms
+- `imgsz=416`: ~7–9 FPS, infer ~100–110 ms
+
+
+---
+
 ## ROS 2 configs (key points)
 
 ### Why we need `image_qos_relay`
